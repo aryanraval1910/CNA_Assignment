@@ -84,6 +84,14 @@
     {
       "source": "logistics.events",
       "vhost": "/",
+      "destination": "shipment.order_confirmed.queue",
+      "destination_type": "queue",
+      "routing_key": "order.created.v1",
+      "arguments": {}
+    },
+    {
+      "source": "logistics.events",
+      "vhost": "/",
       "destination": "tracking.location.queue",
       "destination_type": "queue",
       "routing_key": "tracking.location_received.v1",

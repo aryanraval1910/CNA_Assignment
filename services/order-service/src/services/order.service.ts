@@ -154,11 +154,21 @@ export class OrderService {
         totalAmount: totals.totalAmount,
         status: 'PENDING',
         origin: {
+          address: input.origin.addressLine1,
+          addressLine1: input.origin.addressLine1,
+          addressLine2: input.origin.addressLine2 || null,
           city: input.origin.city,
+          state: input.origin.state || null,
+          postalCode: input.origin.postalCode || null,
           countryCode: input.origin.countryCode
         },
         destination: {
+          address: input.destination.addressLine1,
+          addressLine1: input.destination.addressLine1,
+          addressLine2: input.destination.addressLine2 || null,
           city: input.destination.city,
+          state: input.destination.state || null,
+          postalCode: input.destination.postalCode || null,
           countryCode: input.destination.countryCode
         },
         itemCount: orderItems.length,
@@ -355,7 +365,9 @@ export class OrderService {
             customerId: existing.customerId,
             previousStatus: 'PENDING',
             status: 'CONFIRMED',
-            version: updateResult.newVersion
+            version: updateResult.newVersion,
+            origin: existing.origin,
+            destination: existing.destination
           }
         },
         conn

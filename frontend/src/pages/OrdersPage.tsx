@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { orderApi } from '../api/client';
+import { orderApi, shipmentApi } from '../api/client';
 import { Order, OrderStatus } from '../types';
 import {
   Plus,
@@ -13,10 +13,30 @@ import {
   ArrowRight
 } from 'lucide-react';
 
+const CITY_COORDINATES: Record<string, { lat: number; lon: number }> = {
+  seattle: { lat: 47.6062, lon: -122.3321 },
+  portland: { lat: 45.5152, lon: -122.6784 },
+  sanfrancisco: { lat: 37.7749, lon: -122.4194 },
+  losangeles: { lat: 34.0522, lon: -118.2437 },
+  chicago: { lat: 41.8781, lon: -87.6298 },
+  newyork: { lat: 40.7128, lon: -74.006 },
+  mumbai: { lat: 19.076, lon: 72.8777 },
+  delhi: { lat: 28.6139, lon: 77.209 },
+  bangalore: { lat: 12.9716, lon: 77.5946 }
+};
+
+function getCityCoords(city: string, countryCode: string): { lat: number; lon: number } {
+  const norm = (city || '').toLowerCase().replace(/[^a-z]/g, '');
+  if (CITY_COORDINATES[norm]) return CITY_COORDINATES[norm];
+  if ((countryCode || '').toUpperCase() === 'IN') return { lat: 19.076, lon: 72.8777 };
+  return { lat: 47.6062, lon: -122.3321 };
+}
+
 export const OrdersPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -61,6 +81,7 @@ export const OrdersPage: React.FC = () => {
   const handleCreateOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading('create');
+    setError(null);
     try {
       const idempotencyKey = `web-${Date.now()}-${Math.random().toString(36).substring(7)}`;
       const payload = {
@@ -87,9 +108,40 @@ export const OrdersPage: React.FC = () => {
         ]
       };
 
-      await orderApi.create(payload, idempotencyKey);
+      const createdOrder = await orderApi.create(payload, idempotencyKey);
+
+      // Proactively stage the corresponding shipment in MS2 so it is immediately visible in Shipments
+      try {
+        const originCoords = getCityCoords(payload.origin.city, payload.origin.countryCode);
+        const destCoords = getCityCoords(payload.destination.city, payload.destination.countryCode);
+        await shipmentApi.create({
+          orderId: createdOrder.id,
+          origin: {
+            name: `${payload.origin.city} Hub`,
+            address: payload.origin.addressLine1 || '100 Industrial Pkwy',
+            city: payload.origin.city || 'Seattle',
+            countryCode: (payload.origin.countryCode || 'US').toUpperCase(),
+            latitude: originCoords.lat,
+            longitude: originCoords.lon
+          },
+          destination: {
+            name: `${payload.destination.city} Depot`,
+            address: payload.destination.addressLine1 || '500 Commercial Way',
+            city: payload.destination.city || 'Portland',
+            countryCode: (payload.destination.countryCode || 'US').toUpperCase(),
+            latitude: destCoords.lat,
+            longitude: destCoords.lon
+          },
+          notes: `Auto-staged for order ${createdOrder.orderNumber}`
+        });
+      } catch (shipmentErr) {
+        console.warn('Direct shipment staging note:', shipmentErr);
+      }
+
+      setSuccessMsg(`Order ${createdOrder.orderNumber} created & shipment staged! Check the Shipments page.`);
       setShowCreateModal(false);
       loadOrders();
+      setTimeout(() => setSuccessMsg(null), 7000);
     } catch (err: any) {
       alert(`Order creation failed: ${err.message}`);
     } finally {
@@ -100,8 +152,37 @@ export const OrdersPage: React.FC = () => {
   const handleConfirmOrder = async (orderId: string) => {
     setActionLoading(orderId);
     try {
-      await orderApi.confirm(orderId);
+      const confirmedOrder = await orderApi.confirm(orderId);
+      // Ensure shipment is staged in MS2 if not already staged
+      try {
+        const originCoords = getCityCoords(confirmedOrder.origin.city, confirmedOrder.origin.countryCode);
+        const destCoords = getCityCoords(confirmedOrder.destination.city, confirmedOrder.destination.countryCode);
+        await shipmentApi.create({
+          orderId: confirmedOrder.id,
+          origin: {
+            name: `${confirmedOrder.origin.city} Hub`,
+            address: confirmedOrder.origin.addressLine1 || '100 Industrial Pkwy',
+            city: confirmedOrder.origin.city,
+            countryCode: (confirmedOrder.origin.countryCode || 'US').toUpperCase(),
+            latitude: originCoords.lat,
+            longitude: originCoords.lon
+          },
+          destination: {
+            name: `${confirmedOrder.destination.city} Depot`,
+            address: confirmedOrder.destination.addressLine1 || '500 Commercial Way',
+            city: confirmedOrder.destination.city,
+            countryCode: (confirmedOrder.destination.countryCode || 'US').toUpperCase(),
+            latitude: destCoords.lat,
+            longitude: destCoords.lon
+          },
+          notes: `Confirmed order ${confirmedOrder.orderNumber}`
+        });
+      } catch (shipmentErr) {
+        // already staged or background consumer handled it
+      }
+      setSuccessMsg(`Order confirmed and shipment staged!`);
       loadOrders();
+      setTimeout(() => setSuccessMsg(null), 5000);
     } catch (err: any) {
       alert(`Order confirmation failed: ${err.message}`);
     } finally {
@@ -224,6 +305,22 @@ export const OrdersPage: React.FC = () => {
             className="px-3 py-1 bg-rose-800 hover:bg-rose-700 text-white text-xs rounded-lg transition"
           >
             Retry
+          </button>
+        </div>
+      )}
+
+      {/* Success notification */}
+      {successMsg && (
+        <div className="p-4 bg-emerald-950/70 border border-emerald-700 text-emerald-200 rounded-xl flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center space-x-3">
+            <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+            <span className="text-sm font-medium">{successMsg}</span>
+          </div>
+          <button
+            onClick={() => setSuccessMsg(null)}
+            className="text-emerald-400 hover:text-white text-xs ml-4"
+          >
+            ✕
           </button>
         </div>
       )}

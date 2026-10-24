@@ -27,6 +27,12 @@ export class ShipmentService {
   }
 
   async createShipment(input: CreateShipmentInput): Promise<Shipment> {
+    // Idempotency check: if a shipment already exists for this orderId, return it directly
+    const existing = await shipmentRepository.findByOrderId(input.orderId);
+    if (existing) {
+      return existing;
+    }
+
     const shipmentId = uuidv4();
     const trackingNumber = input.trackingNumber || this.generateTrackingNumber();
     const now = new Date().toISOString();
