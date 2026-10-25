@@ -1,7 +1,11 @@
 name: Deploy to EC2
 
 on:
-  push:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
     branches:
       - main
   workflow_dispatch:
@@ -15,12 +19,15 @@ concurrency:
 
 jobs:
   deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
     environment: production
 
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       - name: Configure SSH
         env:
@@ -45,7 +52,7 @@ jobs:
           set -Eeuo pipefail
           cd "$DEPLOY_PATH"
           git fetch --prune origin
-          git reset --hard "origin/main"
+          git reset --hard "${{ github.event.workflow_run.head_sha || 'origin/main' }}"
           export PUBLIC_HOST="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4)"
           sudo env PUBLIC_HOST="$PUBLIC_HOST" COMPOSE_PARALLEL_LIMIT=1 docker compose config --quiet
           sudo env PUBLIC_HOST="$PUBLIC_HOST" COMPOSE_PARALLEL_LIMIT=1 docker compose build
