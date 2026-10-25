@@ -34,10 +34,20 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
         run: |
           test -n "$AWS_REGION" || { echo "::error::AWS_REGION is missing from repository Actions secrets."; exit 1; }
           test -n "$AWS_ROLE_ARN" || { echo "::error::AWS_ROLE_ARN is missing from repository Actions secrets."; exit 1; }
           test -n "$EC2_INSTANCE_ID" || { echo "::error::EC2_INSTANCE_ID is missing from repository Actions secrets."; exit 1; }
+          test -n "$MYSQL_ROOT_PASSWORD" || { echo "::error::MYSQL_ROOT_PASSWORD is missing from repository Actions secrets."; exit 1; }
+          test -n "$MYSQL_PASSWORD" || { echo "::error::MYSQL_PASSWORD is missing from repository Actions secrets."; exit 1; }
+          test -n "$POSTGRES_PASSWORD" || { echo "::error::POSTGRES_PASSWORD is missing from repository Actions secrets."; exit 1; }
+          test -n "$RABBITMQ_USER" || { echo "::error::RABBITMQ_USER is missing from repository Actions secrets."; exit 1; }
+          test -n "$RABBITMQ_PASSWORD" || { echo "::error::RABBITMQ_PASSWORD is missing from repository Actions secrets."; exit 1; }
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -50,10 +60,19 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          MYSQL_ROOT_PASSWORD: ${{ secrets.MYSQL_ROOT_PASSWORD }}
+          MYSQL_PASSWORD: ${{ secrets.MYSQL_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          RABBITMQ_USER: ${{ secrets.RABBITMQ_USER }}
+          RABBITMQ_PASSWORD: ${{ secrets.RABBITMQ_PASSWORD }}
         run: |
+          ENV_CONTENT="$(printf 'MYSQL_ROOT_PASSWORD=%s\nMYSQL_USER=order_app\nMYSQL_PASSWORD=%s\nPOSTGRES_USER=postgres\nPOSTGRES_PASSWORD=%s\nRABBITMQ_USER=%s\nRABBITMQ_PASSWORD=%s\n' \
+            "$MYSQL_ROOT_PASSWORD" "$MYSQL_PASSWORD" "$POSTGRES_PASSWORD" "$RABBITMQ_USER" "$RABBITMQ_PASSWORD")"
+          ENV_B64="$(printf '%s' "$ENV_CONTENT" | base64 -w 0)"
           jq -n \
             --arg instance "$EC2_INSTANCE_ID" \
             --arg sha "$DEPLOY_SHA" \
+            --arg env_b64 "$ENV_B64" \
             '{
               DocumentName: "AWS-RunShellScript",
               InstanceIds: [$instance],
@@ -66,6 +85,8 @@ jobs:
                   ("git reset --hard " + $sha),
                   "TOKEN=$(curl -fsS -X PUT -H \"X-aws-ec2-metadata-token-ttl-seconds: 60\" http://169.254.169.254/latest/api/token)",
                   "PUBLIC_HOST=$(curl -fsS -H \"X-aws-ec2-metadata-token: $TOKEN\" http://169.254.169.254/latest/meta-data/public-ipv4)",
+                  ("printf '%s' " + $env_b64 + " | base64 -d > .env"),
+                  "chmod 600 .env",
                   "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" COMPOSE_PARALLEL_LIMIT=1 docker compose config --quiet",
                   "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" COMPOSE_PARALLEL_LIMIT=1 docker compose build",
                   "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" docker compose up -d --remove-orphans",

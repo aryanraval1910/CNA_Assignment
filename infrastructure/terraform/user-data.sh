@@ -38,19 +38,7 @@ fi
 
 rm -rf "$project_dir"
 git clone --depth 1 "${repository_url}" "$project_dir"
-cd "$project_dir"
 
-rabbitmq_url="am""qp://""guest"":""guest@rabbitmq:5672"
-instance_public_ip="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4)"
-
-# Normalize the checked-in RabbitMQ values before the first Compose start.
-sed -i "s#RABBITMQ_URL: .*rabbitmq:5672/#RABBITMQ_URL: $${rabbitmq_url}/#g" docker-compose.yml
-sed -i "s#RABBITMQ_URL: .*rabbitmq:5672#RABBITMQ_URL: $${rabbitmq_url}#g" docker-compose.yml
-sed -i 's#RABBITMQ_URL: \*\*\*\*\*\*rabbitmq:5672/#RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/#g' docker-compose.yml
-sed -i 's#RABBITMQ_URL: \*\*\*\*\*\*rabbitmq:5672#RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672#g' docker-compose.yml
-
-sed -i -E "s#RABBITMQ_URL: [^ ]*#RABBITMQ_URL: $${rabbitmq_url}#g" docker-compose.yml
-sed -i -E "s#CORS_ORIGINS: [^ ]*#CORS_ORIGINS: http://localhost:3000,http://localhost:5173,http://localhost:3001,http://localhost:3002,http://$${instance_public_ip}:3000#g" docker-compose.yml
-env COMPOSE_PARALLEL_LIMIT=1 docker compose build
-docker compose up -d
-docker compose ps
+# The deployment workflow writes the protected .env file through SSM before
+# the first Compose validation or startup.
+chmod 755 "$project_dir"

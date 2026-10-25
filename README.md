@@ -211,6 +211,11 @@ Add these repository-level GitHub Actions secrets under **Settings → Secrets a
 | `AWS_REGION` | `us-east-1` |
 | `AWS_ROLE_ARN` | IAM role GitHub Actions may assume through OIDC |
 | `EC2_INSTANCE_ID` | Current EC2 instance ID |
+| `MYSQL_ROOT_PASSWORD` | Production MySQL root password |
+| `MYSQL_PASSWORD` | Production MySQL application password |
+| `POSTGRES_PASSWORD` | Production PostgreSQL password |
+| `RABBITMQ_USER` | Production RabbitMQ application user |
+| `RABBITMQ_PASSWORD` | Production RabbitMQ application password |
 
 The IAM role used by `AWS_ROLE_ARN` must trust GitHub's OIDC provider and restrict the `sub` claim to this repository and its `main` branch. It needs permission to call `ssm:SendCommand`, `ssm:GetCommandInvocation`, and `ec2:DescribeInstances`.
 
