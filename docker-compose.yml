@@ -256,6 +256,7 @@ services:
     tmpfs:
       - /var/cache/nginx:rw,noexec,nosuid,size=16m
       - /var/run:rw,noexec,nosuid,size=1m
+      - /var/log/nginx:rw,noexec,nosuid,size=4m
     networks:
       - edge
 
