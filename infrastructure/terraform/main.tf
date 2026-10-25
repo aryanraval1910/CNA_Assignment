@@ -76,10 +76,34 @@ resource "aws_security_group" "application" {
   }
 
   egress {
-    description = "Allow outbound application traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS outbound application traffic"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "HTTP package repository traffic"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "DNS resolution"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "udp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    description = "DNS fallback resolution"
+    from_port   = 53
+    to_port     = 53
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 
@@ -96,6 +120,12 @@ resource "aws_instance" "application" {
   iam_instance_profile        = aws_iam_instance_profile.ec2_ssm.name
   vpc_security_group_ids      = [aws_security_group.application.id]
   associate_public_ip_address = true
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+  }
 
   user_data = templatefile("${path.module}/user-data.sh", {
     project_name   = var.project_name

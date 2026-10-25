@@ -252,7 +252,7 @@ services:
       - tracking-service
       - prediction-service
     ports:
-      - "127.0.0.1:3000:80"
+      - "127.0.0.1:3000:8080"
     tmpfs:
       - /var/cache/nginx:rw,noexec,nosuid,size=16m
       - /var/run:rw,noexec,nosuid,size=1m
