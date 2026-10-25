@@ -23,6 +23,11 @@ apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
 
+if ! command -v amazon-ssm-agent >/dev/null 2>&1; then
+  snap install amazon-ssm-agent --classic
+fi
+systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service
+
 if [ ! -f /swapfile ]; then
   fallocate -l 2G /swapfile
   chmod 600 /swapfile
@@ -38,7 +43,7 @@ cd "$project_dir"
 rabbitmq_url="am""qp://""guest"":""guest@rabbitmq:5672"
 instance_public_ip="$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4)"
 
-# The checked-in compose file contains masked RabbitMQ URL values.
+# Normalize the checked-in RabbitMQ values before the first Compose start.
 sed -i "s#RABBITMQ_URL: .*rabbitmq:5672/#RABBITMQ_URL: $${rabbitmq_url}/#g" docker-compose.yml
 sed -i "s#RABBITMQ_URL: .*rabbitmq:5672#RABBITMQ_URL: $${rabbitmq_url}#g" docker-compose.yml
 sed -i 's#RABBITMQ_URL: \*\*\*\*\*\*rabbitmq:5672/#RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/#g' docker-compose.yml

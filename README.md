@@ -199,16 +199,24 @@ docker compose down -v
 The repository includes two workflows:
 
 - `.github/workflows/ci.yml` runs service tests, the frontend build, contract tests, Docker Compose validation, and Terraform validation on pull requests and pushes to `main` or `develop`.
-- `.github/workflows/deploy.yml` deploys a successful `main` branch push to the existing EC2 instance over SSH, rebuilds the Docker images sequentially, recreates the Compose services, and checks the frontend.
+- `.github/workflows/deploy.yml` deploys a successful `main` branch push to the existing EC2 instance through AWS Systems Manager (SSM), rebuilds the Docker images sequentially, recreates the Compose services, and checks the frontend. It does not require GitHub-hosted runners to access SSH.
 
 Add these repository-level GitHub Actions secrets under **Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 | --- | --- |
-| `EC2_HOST` | Current EC2 public IP or Elastic IP |
-| `EC2_USER` | `ubuntu` |
-| `EC2_SSH_KEY` | Contents of the EC2 private key |
+| `AWS_REGION` | `us-east-1` |
+| `AWS_ROLE_ARN` | IAM role GitHub Actions may assume through OIDC |
+| `EC2_INSTANCE_ID` | Current EC2 instance ID |
 
-The deployment workflow intentionally does not require a GitHub environment. This avoids environment-scoped secrets being unavailable to the workflow. The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration.
+The IAM role used by `AWS_ROLE_ARN` must trust GitHub's OIDC provider and restrict the `sub` claim to this repository and its `main` branch. It needs permission to call `ssm:SendCommand`, `ssm:GetCommandInvocation`, and `ec2:DescribeInstances`.
 
-For stable deployments, associate an Elastic IP with the instance and use that address as `EC2_HOST`; an ordinary EC2 public IP changes after stop/start operations.
+Terraform attaches `AmazonSSMManagedInstanceCore` to the EC2 instance and installs the SSM agent. The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration.
+
+For the current AWS account, the deployment role created for `AWS_ROLE_ARN` is:
+
+```text
+arn:aws:iam::869987461137:role/logistics-control-tower-github-actions
+```
+
+For stable deployments, associate an Elastic IP with the instance; an ordinary EC2 public IP changes after stop/start operations.
