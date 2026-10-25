@@ -21,7 +21,6 @@ jobs:
   deploy:
     if: ${{ github.event_name == 'workflow_dispatch' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main') }}
     runs-on: ubuntu-latest
-    environment: production
 
     steps:
       - name: Check out source
@@ -34,8 +33,8 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
-          test -n "$EC2_HOST" || { echo "::error::EC2_HOST is not configured in the production environment."; exit 1; }
-          test -n "$EC2_SSH_KEY" || { echo "::error::EC2_SSH_KEY is not configured in the production environment."; exit 1; }
+          test -n "$EC2_HOST" || { echo "::error::EC2_HOST is missing from repository Actions secrets."; exit 1; }
+          test -n "$EC2_SSH_KEY" || { echo "::error::EC2_SSH_KEY is missing from repository Actions secrets."; exit 1; }
           install -m 700 -d ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key

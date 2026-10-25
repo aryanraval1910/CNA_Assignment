@@ -201,7 +201,7 @@ The repository includes two workflows:
 - `.github/workflows/ci.yml` runs service tests, the frontend build, contract tests, Docker Compose validation, and Terraform validation on pull requests and pushes to `main` or `develop`.
 - `.github/workflows/deploy.yml` deploys a successful `main` branch push to the existing EC2 instance over SSH, rebuilds the Docker images sequentially, recreates the Compose services, and checks the frontend.
 
-Create a GitHub **production** environment and add these secrets:
+Add these repository-level GitHub Actions secrets under **Settings → Secrets and variables → Actions**:
 
 | Secret | Value |
 | --- | --- |
@@ -209,6 +209,6 @@ Create a GitHub **production** environment and add these secrets:
 | `EC2_USER` | `ubuntu` |
 | `EC2_SSH_KEY` | Contents of the EC2 private key |
 
-The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration.
+The deployment workflow intentionally does not require a GitHub environment. This avoids environment-scoped secrets being unavailable to the workflow. The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration.
 
 For stable deployments, associate an Elastic IP with the instance and use that address as `EC2_HOST`; an ordinary EC2 public IP changes after stop/start operations.
