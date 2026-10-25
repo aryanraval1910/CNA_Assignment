@@ -17,9 +17,13 @@ RUN cmake -B build -DCMAKE_BUILD_TYPE=Release \
 FROM alpine:3.19 AS runner
 
 RUN apk add --no-cache libstdc++ libgcc
+RUN addgroup -S appgroup && adduser -S -D -H -G appgroup appuser
 
 WORKDIR /app
 COPY --from=builder /build/build/prediction_service /app/prediction_service
+RUN chown appuser:appgroup /app/prediction_service
+
+USER appuser
 
 EXPOSE 3004
 
