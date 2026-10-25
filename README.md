@@ -216,6 +216,12 @@ The IAM role used by `AWS_ROLE_ARN` must trust GitHub's OIDC provider and restri
 
 Terraform attaches `AmazonSSMManagedInstanceCore` to the EC2 instance and installs the SSM agent. The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration.
 
+When deploying Terraform, copy `infrastructure/terraform/terraform.tfvars.example` to
+`terraform.tfvars` and set `allowed_egress_cidrs` to the CIDR of a controlled NAT gateway
+or outbound proxy. The value is required and intentionally rejects `0.0.0.0/0` and `::/0`;
+the application security group only permits outbound HTTP, HTTPS, and DNS through those
+configured destinations.
+
 For the current AWS account, the deployment role created for `AWS_ROLE_ARN` is:
 
 ```text

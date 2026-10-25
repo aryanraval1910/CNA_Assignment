@@ -38,6 +38,16 @@ variable "allowed_http_cidr" {
   default     = "0.0.0.0/0"
 }
 
+variable "allowed_egress_cidrs" {
+  description = "Explicit destination CIDRs for required outbound HTTP, HTTPS, and DNS traffic. Use NAT or proxy CIDRs in production; do not use 0.0.0.0/0."
+  type        = list(string)
+
+  validation {
+    condition     = length(var.allowed_egress_cidrs) > 0 && !contains(var.allowed_egress_cidrs, "0.0.0.0/0") && !contains(var.allowed_egress_cidrs, "::/0")
+    error_message = "allowed_egress_cidrs must contain at least one destination and must not allow the entire internet."
+  }
+}
+
 variable "repository_url" {
   description = "Git repository URL to deploy on the EC2 instance."
   type        = string

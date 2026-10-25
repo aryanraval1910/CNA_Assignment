@@ -5,3 +5,5 @@ key_name         = "logistics-ec2-key"
 project_name     = "logistics-control-tower"
 allowed_ssh_cidr = "103.81.94.132/32"
 allowed_http_cidr = "0.0.0.0/0"
+# Replace with the CIDR of your controlled NAT gateway or outbound proxy.
+allowed_egress_cidrs = ["10.0.0.0/8"]

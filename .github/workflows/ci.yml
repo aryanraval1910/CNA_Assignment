@@ -65,6 +65,10 @@ jobs:
 
       - name: Scan repository and Compose configuration
         uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TF_VAR_key_name: ci-validation-key
+          TF_VAR_allowed_ssh_cidr: 127.0.0.1/32
+          TF_VAR_allowed_egress_cidrs: '["10.0.0.0/8"]'
         with:
           scan-type: config
           scan-ref: .
@@ -81,6 +85,10 @@ jobs:
 
       - name: Validate Terraform
         working-directory: infrastructure/terraform
+        env:
+          TF_VAR_key_name: ci-validation-key
+          TF_VAR_allowed_ssh_cidr: 127.0.0.1/32
+          TF_VAR_allowed_egress_cidrs: '["10.0.0.0/8"]'
         run: |
           terraform fmt -check
           terraform init -backend=false -input=false
