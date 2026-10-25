@@ -7,7 +7,7 @@ export DEBIAN_FRONTEND=noninteractive
 project_dir="/opt/${project_name}"
 
 apt-get update
-apt-get install -y ca-certificates curl git gnupg
+apt-get install -y ca-certificates curl git gnupg openssl
 
 install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
