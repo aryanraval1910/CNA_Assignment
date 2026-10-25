@@ -114,12 +114,18 @@ resource "aws_security_group" "application" {
 }
 
 resource "aws_instance" "application" {
+  # The current single-instance deployment intentionally uses a public IP so
+  # the frontend and management endpoint can be reached without an ingress
+  # load balancer. The security group restricts exposed ports.
+  #checkov:skip=CKV_AWS_88:Public IP is required for the current direct EC2 deployment
   ami                         = var.ami_id != "" ? var.ami_id : data.aws_ami.ubuntu.id
   instance_type               = var.instance_type
   key_name                    = var.key_name
   iam_instance_profile        = aws_iam_instance_profile.ec2_ssm.name
   vpc_security_group_ids      = [aws_security_group.application.id]
   associate_public_ip_address = true
+  ebs_optimized               = true
+  monitoring                  = true
 
   metadata_options {
     http_endpoint               = "enabled"
