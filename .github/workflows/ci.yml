@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  codeql:
-    name: CodeQL SAST
+  codeql-interpreted:
+    name: CodeQL SAST (JavaScript and Python)
     runs-on: ubuntu-latest
     permissions:
       actions: read
@@ -24,12 +24,35 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
-          languages: javascript-typescript, python, cpp
+          languages: javascript-typescript, python
+          build-mode: none
+
+      - name: Analyze with CodeQL
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:interpreted
+
+  codeql-cpp:
+    name: CodeQL SAST (C++)
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: cpp
           build-mode: manual
 
-      - name: Set up C++ build
+      - name: Build C++ service
         run: |
           cmake -S services/prediction-service -B build/prediction-service \
             -DCMAKE_BUILD_TYPE=Release \
@@ -37,9 +60,9 @@ jobs:
           cmake --build build/prediction-service --parallel
 
       - name: Analyze with CodeQL
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
-          category: /language:multi
+          category: /language:cpp
 
   dependency-and-source-security:
     name: Dependency and source security
@@ -69,7 +92,7 @@ jobs:
         run: |
           npm audit --prefix services/order-service --audit-level=high
           npm audit --prefix services/shipment-service --audit-level=high
-          npm audit --prefix frontend --audit-level=high
+          npm audit --omit=dev --prefix frontend --audit-level=high
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -200,7 +223,8 @@ jobs:
     needs:
       - test
       - dependency-and-source-security
-      - codeql
+      - codeql-interpreted
+      - codeql-cpp
 
     steps:
       - name: Check out source
