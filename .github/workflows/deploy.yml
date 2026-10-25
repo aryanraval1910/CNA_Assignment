@@ -38,7 +38,9 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key
           chmod 600 ~/.ssh/ec2_key
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
+          if ! ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null; then
+            echo "::warning::Unable to pre-populate known_hosts from EC2_HOST. Continuing with StrictHostKeyChecking=accept-new."
+          fi
 
       - name: Deploy application
         env:
@@ -46,7 +48,7 @@ jobs:
           EC2_USER: ${{ secrets.EC2_USER }}
           DEPLOY_PATH: /opt/logistics-control-tower
         run: |
-          ssh -i ~/.ssh/ec2_key "$EC2_USER@$EC2_HOST" \
+          ssh -o StrictHostKeyChecking=accept-new -i ~/.ssh/ec2_key "$EC2_USER@$EC2_HOST" \
             "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE_SCRIPT'
           set -Eeuo pipefail
           cd "$DEPLOY_PATH"
