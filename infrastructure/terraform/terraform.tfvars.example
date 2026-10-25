@@ -1,0 +1,7 @@
+aws_region       = "us-east-1"
+ami_id           = ""
+instance_type    = "t3.micro"
+key_name         = "logistics-ec2-key"
+project_name     = "logistics-control-tower"
+allowed_ssh_cidr = "103.81.94.132/32"
+allowed_http_cidr = "0.0.0.0/0"

@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            services/order-service/package-lock.json
+            services/shipment-service/package-lock.json
+            frontend/package-lock.json
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python dependencies
+        run: python -m pip install -r services/tracking-service/requirements.txt
+
+      - name: Test order service
+        working-directory: services/order-service
+        run: npm ci && npm run test:unit
+
+      - name: Test shipment service
+        working-directory: services/shipment-service
+        run: npm ci && npm run test:unit
+
+      - name: Test tracking service
+        run: python -m pytest services/tracking-service/tests
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm ci && npm run build
+
+      - name: Run cross-service contract tests
+        run: python tests/e2e/test_e2e_flow.py
+
+      - name: Validate Docker Compose
+        run: docker compose config --quiet
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Validate Terraform
+        working-directory: infrastructure/terraform
+        run: |
+          terraform fmt -check
+          terraform init -backend=false -input=false
+          terraform validate

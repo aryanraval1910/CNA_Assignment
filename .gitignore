@@ -39,3 +39,9 @@ coverage/
 # OS files
 .DS_Store
 Thumbs.db
+
+infrastructure/terraform/.terraform/
+infrastructure/terraform/*.tfstate
+infrastructure/terraform/*.tfstate.*
+infrastructure/terraform/terraform.tfvars
+*.pem

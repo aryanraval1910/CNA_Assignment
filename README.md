@@ -1,3 +1,13 @@
+
+# access key : m4g26SqfmJvYudmVbsaK915NHlbGteazJ7qVrI81
+
+<!-- Outputs:
+
+frontend_url = "http://52.91.221.120:3000"
+instance_id = "i-008405721df3dee8b"
+instance_public_ip = "52.91.221.120"
+rabbitmq_management_url = "http://52.91.221.120:15672" -->
+
 # Logistics Control Tower — Distributed Autonomous Monorepo
 
 A production-grade, distributed, event-driven Logistics Control Tower platform designed to orchestrate freight order lifecycles, carrier assignments, real-time GPS telemetry ingestion, and explainable baseline ETA and delay-risk prediction.
@@ -181,3 +191,24 @@ To stop containers and wipe database volumes for a clean reset:
 ```bash
 docker compose down -v
 ```
+
+---
+
+## 8. CI/CD with GitHub Actions
+
+The repository includes two workflows:
+
+- `.github/workflows/ci.yml` runs service tests, the frontend build, contract tests, Docker Compose validation, and Terraform validation on pull requests and pushes to `main` or `develop`.
+- `.github/workflows/deploy.yml` deploys a successful `main` branch push to the existing EC2 instance over SSH, rebuilds the Docker images sequentially, recreates the Compose services, and checks the frontend.
+
+Create a GitHub **production** environment and add these secrets:
+
+| Secret | Value |
+| --- | --- |
+| `EC2_HOST` | Current EC2 public IP or Elastic IP |
+| `EC2_USER` | `ubuntu` |
+| `EC2_SSH_KEY` | Contents of the EC2 private key |
+
+The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration.
+
+For stable deployments, associate an Elastic IP with the instance and use that address as `EC2_HOST`; an ordinary EC2 public IP changes after stop/start operations.
