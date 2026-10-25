@@ -1,6 +1,4 @@
 
-# access key : m4g26SqfmJvYudmVbsaK915NHlbGteazJ7qVrI81
-
 <!-- Outputs:
 
 frontend_url = "http://52.91.221.120:3000"
@@ -82,14 +80,19 @@ cd e:\map_assignment
 # 2. Copy the environment configuration
 cp .env.example .env
 
-# 3. Build and launch all 9 containers
+# 3. Set unique values in .env for local use, then build and launch all 9 containers
 docker compose up -d --build
 ```
+
+Compose keeps databases, RabbitMQ, and service APIs bound to `127.0.0.1` for local development,
+connects data stores only to the internal backend network, and runs application containers with
+read-only filesystems, dropped Linux capabilities, and `no-new-privileges`. Do not commit `.env`;
+production deployments should inject these variables from a secrets manager.
 
 ### Accessing Running Services & Dashboards
 
 - **Frontend Control Tower Dashboard**: [http://localhost:3000](http://localhost:3000)
-- **RabbitMQ Management Dashboard**: [http://localhost:15672](http://localhost:15672) (User: `guest`, Password: `guest`)
+- **RabbitMQ Management Dashboard**: [http://localhost:15672](http://localhost:15672) (credentials from `.env`)
 - **MS1 Order Service Health**: [http://localhost:3001/health](http://localhost:3001/health)
 - **MS2 Shipment Service Health**: [http://localhost:3002/health](http://localhost:3002/health)
 - **MS3 Tracking Service Health**: [http://localhost:3003/health](http://localhost:3003/health)

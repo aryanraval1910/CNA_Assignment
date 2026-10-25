@@ -55,7 +55,26 @@ jobs:
         run: python tests/e2e/test_e2e_flow.py
 
       - name: Validate Docker Compose
+        env:
+          MYSQL_ROOT_PASSWORD: ci_mysql_root_password
+          MYSQL_PASSWORD: ci_mysql_app_password
+          POSTGRES_PASSWORD: ci_postgres_password
+          RABBITMQ_USER: ci_rabbitmq
+          RABBITMQ_PASSWORD: ci_rabbitmq_password
         run: docker compose config --quiet
+
+      - name: Scan repository and Compose configuration
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Scan for leaked secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
