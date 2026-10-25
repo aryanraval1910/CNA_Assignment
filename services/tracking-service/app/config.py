@@ -5,7 +5,7 @@ from typing import List
 class Settings(BaseSettings):
     SERVICE_NAME: str = "tracking-service"
     PORT: int = 3003
-    HOST: str = "0.0.0.0"
+    HOST: str = "127.0.0.1"
     API_PREFIX: str = "/api/v1"
     
     # MongoDB
