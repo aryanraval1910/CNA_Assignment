@@ -12,6 +12,7 @@ void test_haversine() {
     // Zero distance test
     double dist_zero = calculate_haversine_distance(47.6062, -122.3321, 47.6062, -122.3321);
     assert(dist_zero < 0.001);
+    (void)dist_zero;
 
     // Seattle, WA to Portland, OR (~233.5 km)
     double dist_sea_pdx = calculate_haversine_distance(47.6062, -122.3321, 45.5152, -122.6784);
@@ -20,6 +21,7 @@ void test_haversine() {
     // New York, NY to Los Angeles, CA (~3935 km)
     double dist_nyc_la = calculate_haversine_distance(40.7128, -74.0060, 34.0522, -118.2437);
     assert(dist_nyc_la > 3900.0 && dist_nyc_la < 4000.0);
+    (void)dist_nyc_la;
 
     std::cout << "  -> test_haversine PASSED (Seattle-Portland: " << dist_sea_pdx << " km)" << std::endl;
 }
