@@ -51,23 +51,34 @@ jobs:
           EC2_INSTANCE_ID: ${{ secrets.EC2_INSTANCE_ID }}
           DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
         run: |
+          jq -n \
+            --arg instance "$EC2_INSTANCE_ID" \
+            --arg sha "$DEPLOY_SHA" \
+            '{
+              DocumentName: "AWS-RunShellScript",
+              InstanceIds: [$instance],
+              Comment: ("Deploy logistics-control-tower " + $sha),
+              Parameters: {
+                commands: [
+                  "set -Eeuo pipefail",
+                  "cd /opt/logistics-control-tower",
+                  "git fetch --prune origin",
+                  ("git reset --hard " + $sha),
+                  "TOKEN=$(curl -fsS -X PUT -H \"X-aws-ec2-metadata-token-ttl-seconds: 60\" http://169.254.169.254/latest/api/token)",
+                  "PUBLIC_HOST=$(curl -fsS -H \"X-aws-ec2-metadata-token: $TOKEN\" http://169.254.169.254/latest/meta-data/public-ipv4)",
+                  "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" COMPOSE_PARALLEL_LIMIT=1 docker compose config --quiet",
+                  "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" COMPOSE_PARALLEL_LIMIT=1 docker compose build",
+                  "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" docker compose up -d --remove-orphans",
+                  "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" docker compose ps"
+                ]
+              }
+            }' > ssm-command.json
+
           COMMAND_ID="$(aws ssm send-command \
-            --document-name AWS-RunShellScript \
-            --instance-ids "$EC2_INSTANCE_ID" \
-            --comment "Deploy logistics-control-tower ${DEPLOY_SHA}" \
-            --parameters "commands=[
-              \"set -Eeuo pipefail\",
-              \"cd /opt/logistics-control-tower\",
-              \"git fetch --prune origin\",
-              \"git reset --hard ${DEPLOY_SHA}\",
-              \"export PUBLIC_HOST=\\$(curl -fsS http://169.254.169.254/latest/meta-data/public-ipv4)\",
-              \"sudo env PUBLIC_HOST=\\$PUBLIC_HOST COMPOSE_PARALLEL_LIMIT=1 docker compose config --quiet\",
-              \"sudo env PUBLIC_HOST=\\$PUBLIC_HOST COMPOSE_PARALLEL_LIMIT=1 docker compose build\",
-              \"sudo env PUBLIC_HOST=\\$PUBLIC_HOST docker compose up -d --remove-orphans\",
-              \"sudo env PUBLIC_HOST=\\$PUBLIC_HOST docker compose ps\"
-            ]" \
+            --cli-input-json file://ssm-command.json \
             --query 'Command.CommandId' \
             --output text)"
+          rm -f ssm-command.json
 
           aws ssm wait command-executed \
             --command-id "$COMMAND_ID" \
