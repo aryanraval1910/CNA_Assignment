@@ -146,6 +146,9 @@ jobs:
           quiet: true
           soft_fail: false
 
+      - name: Clear generated SARIF report before Gitleaks
+        run: sudo rm -f results.sarif
+
       - name: Scan for leaked secrets
         uses: gitleaks/gitleaks-action@v2
         env:
