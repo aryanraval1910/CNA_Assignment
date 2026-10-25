@@ -11,6 +11,123 @@ permissions:
   contents: read
 
 jobs:
+  codeql:
+    name: CodeQL SAST
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript, python, cpp
+          build-mode: manual
+
+      - name: Set up C++ build
+        run: |
+          cmake -S services/prediction-service -B build/prediction-service \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wpedantic"
+          cmake --build build/prediction-service --parallel
+
+      - name: Analyze with CodeQL
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:multi
+
+  dependency-and-source-security:
+    name: Dependency and source security
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            services/order-service/package-lock.json
+            services/shipment-service/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install Node.js dependencies
+        run: |
+          npm ci --prefix services/order-service
+          npm ci --prefix services/shipment-service
+          npm ci --prefix frontend
+
+      - name: Audit npm dependencies
+        run: |
+          npm audit --prefix services/order-service --audit-level=high
+          npm audit --prefix services/shipment-service --audit-level=high
+          npm audit --prefix frontend --audit-level=high
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python security tools and dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r services/tracking-service/requirements.txt
+          python -m pip install bandit pip-audit
+
+      - name: Run Bandit
+        run: bandit -r services/tracking-service/app -ll
+
+      - name: Audit Python dependencies
+        run: pip-audit -r services/tracking-service/requirements.txt
+
+      - name: Install C++ static analyzer
+        run: sudo apt-get update && sudo apt-get install --yes cppcheck
+
+      - name: Run C++ compiler warnings and static analysis
+        run: |
+          cmake -S services/prediction-service -B build/prediction-service \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wpedantic -Werror"
+          cmake --build build/prediction-service --parallel
+          cppcheck --enable=warning,style,performance,portability \
+            --error-exitcode=1 \
+            --language=c++ \
+            --std=c++17 \
+            services/prediction-service/src services/prediction-service/tests
+
+      - name: Scan Terraform and repository configuration
+        uses: aquasecurity/trivy-action@v0.36.0
+        env:
+          TF_VAR_key_name: ci-validation-key
+          TF_VAR_allowed_ssh_cidr: 127.0.0.1/32
+          TF_VAR_allowed_egress_cidrs: '["10.0.0.0/8"]'
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+
+      - name: Scan Terraform with Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: infrastructure/terraform
+          framework: terraform
+          quiet: true
+          soft_fail: false
+
+      - name: Scan for leaked secrets
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   test:
     runs-on: ubuntu-latest
 
@@ -63,23 +180,6 @@ jobs:
           RABBITMQ_PASSWORD: ci_rabbitmq_password
         run: docker compose config --quiet
 
-      - name: Scan repository and Compose configuration
-        uses: aquasecurity/trivy-action@v0.36.0
-        env:
-          TF_VAR_key_name: ci-validation-key
-          TF_VAR_allowed_ssh_cidr: 127.0.0.1/32
-          TF_VAR_allowed_egress_cidrs: '["10.0.0.0/8"]'
-        with:
-          scan-type: config
-          scan-ref: .
-          severity: HIGH,CRITICAL
-          exit-code: "1"
-
-      - name: Scan for leaked secrets
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@v3
 
@@ -93,3 +193,65 @@ jobs:
           terraform fmt -check
           terraform init -backend=false -input=false
           terraform validate
+
+  dast:
+    name: OWASP ZAP DAST
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - dependency-and-source-security
+      - codeql
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Start isolated application stack
+        env:
+          MYSQL_ROOT_PASSWORD: ci_mysql_root_password
+          MYSQL_PASSWORD: ci_mysql_app_password
+          POSTGRES_PASSWORD: ci_postgres_password
+          RABBITMQ_USER: ci_rabbitmq
+          RABBITMQ_PASSWORD: ci_rabbitmq_password
+          BIND_ADDRESS: 0.0.0.0
+        run: docker compose up -d --build
+
+      - name: Wait for frontend
+        run: |
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error --max-time 5 http://127.0.0.1:3000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          docker compose ps
+          docker compose logs --no-color
+          exit 1
+
+      - name: Run OWASP ZAP baseline scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: http://host.docker.internal:3000
+          fail_action: true
+          allow_issue_writing: false
+
+      - name: Upload DAST report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-dast-report
+          path: |
+            report_html.html
+            report_json.json
+            report_md.md
+          if-no-files-found: ignore
+
+      - name: Stop isolated application stack
+        if: always()
+        env:
+          MYSQL_ROOT_PASSWORD: ci_mysql_root_password
+          MYSQL_PASSWORD: ci_mysql_app_password
+          POSTGRES_PASSWORD: ci_postgres_password
+          RABBITMQ_USER: ci_rabbitmq
+          RABBITMQ_PASSWORD: ci_rabbitmq_password
+        run: docker compose down -v
