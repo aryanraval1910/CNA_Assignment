@@ -254,8 +254,8 @@ services:
     ports:
       - "${BIND_ADDRESS:-127.0.0.1}:3000:8080"
     tmpfs:
-      - /var/cache/nginx:rw,noexec,nosuid,size=16m
-      - /var/run:rw,noexec,nosuid,size=1m
+      - /var/cache/nginx:rw,noexec,nosuid,size=16m,uid=101,gid=101,mode=0755
+      - /var/run:rw,noexec,nosuid,size=1m,uid=101,gid=101,mode=0755
       - /var/log/nginx:rw,noexec,nosuid,size=4m
     networks:
       - edge

@@ -19,4 +19,4 @@ USER nginx
 
 EXPOSE 8080
 
-CMD ["nginx", "-g", "pid /tmp/nginx.pid; daemon off;"]
+CMD ["nginx", "-g", "daemon off;"]

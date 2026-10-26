@@ -39,12 +39,12 @@ variable "allowed_http_cidr" {
 }
 
 variable "allowed_egress_cidrs" {
-  description = "Explicit destination CIDRs for required outbound HTTP, HTTPS, and DNS traffic. Use NAT or proxy CIDRs in production; do not use 0.0.0.0/0."
+  description = "Destination CIDRs for outbound HTTP, HTTPS, and DNS traffic. For this direct public-EC2 deployment, 0.0.0.0/0 is required unless a NAT gateway or proxy CIDR is supplied."
   type        = list(string)
 
   validation {
-    condition     = length(var.allowed_egress_cidrs) > 0 && !contains(var.allowed_egress_cidrs, "0.0.0.0/0") && !contains(var.allowed_egress_cidrs, "::/0")
-    error_message = "allowed_egress_cidrs must contain at least one destination and must not allow the entire internet."
+    condition     = length(var.allowed_egress_cidrs) > 0 && !contains(var.allowed_egress_cidrs, "::/0")
+    error_message = "allowed_egress_cidrs must contain at least one IPv4 destination and must not include the IPv6 internet."
   }
 }
 

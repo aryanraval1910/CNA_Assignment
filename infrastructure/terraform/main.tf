@@ -145,6 +145,18 @@ resource "aws_instance" "application" {
     delete_on_termination = true
   }
 
+  lifecycle {
+    # Keep an imported running instance intact. These settings are immutable
+    # or bootstrap-only and changing them would replace the live server.
+    ignore_changes = [
+      ami,
+      ebs_optimized,
+      instance_type,
+      monitoring,
+      user_data
+    ]
+  }
+
   tags = {
     Name    = var.project_name
     Project = var.project_name
