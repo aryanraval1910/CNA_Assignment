@@ -71,10 +71,14 @@ jobs:
                   "chmod 600 .env",
                   "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" BIND_ADDRESS=0.0.0.0 COMPOSE_PARALLEL_LIMIT=1 docker compose config --quiet",
                   "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" BIND_ADDRESS=0.0.0.0 COMPOSE_PARALLEL_LIMIT=1 docker compose build",
-                  "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" BIND_ADDRESS=0.0.0.0 docker compose up -d --remove-orphans",
+                  "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" BIND_ADDRESS=0.0.0.0 docker compose up -d --force-recreate --remove-orphans",
                   "sudo env PUBLIC_HOST=\"$PUBLIC_HOST\" BIND_ADDRESS=0.0.0.0 docker compose ps",
-                  "attempt=0; until curl -fsS --max-time 5 http://127.0.0.1:3000/ >/dev/null; do attempt=$((attempt + 1)); if [ \"$attempt\" -ge 60 ]; then sudo env BIND_ADDRESS=0.0.0.0 docker compose ps; sudo docker compose logs --tail=100; exit 1; fi; sleep 5; done",
-                  "for endpoint in http://127.0.0.1:3001/ready http://127.0.0.1:3002/health http://127.0.0.1:3003/health http://127.0.0.1:3004/health; do curl -fsS --max-time 10 \"$endpoint\" >/dev/null || { sudo env BIND_ADDRESS=0.0.0.0 docker compose ps; sudo docker compose logs --tail=100; exit 1; }; done"
+                  "retry_http() { endpoint=\"$1\"; attempt=0; until curl -fsS --max-time 5 \"$endpoint\" >/dev/null; do attempt=$((attempt + 1)); if [ \"$attempt\" -ge 60 ]; then echo \"Readiness check failed: $endpoint\"; sudo env BIND_ADDRESS=0.0.0.0 docker compose ps; sudo docker compose logs --tail=100; return 1; fi; sleep 5; done; }",
+                  "retry_http http://127.0.0.1:3000/",
+                  "retry_http http://127.0.0.1:3001/ready",
+                  "retry_http http://127.0.0.1:3002/health",
+                  "retry_http http://127.0.0.1:3003/health",
+                  "retry_http http://127.0.0.1:3004/health"
                 ]
               }
             }' > ssm-command.json
