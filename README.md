@@ -217,11 +217,11 @@ The IAM role used by `AWS_ROLE_ARN` must trust GitHub's OIDC provider and restri
 Terraform attaches `AmazonSSMManagedInstanceCore` to the EC2 instance and installs the SSM agent. The EC2 host must already contain the repository at `/opt/logistics-control-tower`, as created by Terraform. The deployment workflow uses the instance metadata service to discover its current public IP and supplies it as `PUBLIC_HOST` to Docker Compose for backend CORS configuration. On the first deployment, CD generates random database and RabbitMQ credentials on the instance and stores them in the root-only `.env` file; subsequent deployments preserve that file.
 
 When deploying Terraform, copy `infrastructure/terraform/terraform.tfvars.example` to
-`terraform.tfvars`. This direct public-EC2 deployment uses `0.0.0.0/0` for
-`allowed_egress_cidrs` so bootstrap can reach APT, Docker Hub, GitHub, and AWS SSM.
-The application security group still limits outbound traffic to HTTP, HTTPS, and DNS.
-If the instance is placed behind a controlled NAT gateway or outbound proxy, replace
-the value with that destination CIDR.
+`terraform.tfvars` and set `allowed_egress_cidrs` to the CIDR of a controlled NAT
+gateway or outbound proxy. The application security group only permits outbound
+HTTP, HTTPS, and DNS through those configured destinations. A direct public-EC2
+deployment must provide an appropriate egress destination that allows bootstrap,
+Docker image pulls, GitHub, and AWS SSM traffic.
 
 For the current AWS account, the deployment role created for `AWS_ROLE_ARN` is:
 
