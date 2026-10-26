@@ -75,6 +75,10 @@ resource "aws_security_group" "application" {
     cidr_blocks = [var.allowed_http_cidr]
   }
 
+  # Direct public-EC2 deployment requires internet destinations for bootstrap,
+  # Docker image pulls, GitHub deployments, and AWS SSM. Only required ports
+  # are open; retain the explicit review exception for the destination CIDR.
+  #tfsec:ignore:AVD-AWS-0104
   egress {
     description = "HTTPS outbound application traffic"
     from_port   = 443
@@ -83,6 +87,7 @@ resource "aws_security_group" "application" {
     cidr_blocks = var.allowed_egress_cidrs
   }
 
+  #tfsec:ignore:AVD-AWS-0104
   egress {
     description = "HTTP package repository traffic"
     from_port   = 80
@@ -91,6 +96,7 @@ resource "aws_security_group" "application" {
     cidr_blocks = var.allowed_egress_cidrs
   }
 
+  #tfsec:ignore:AVD-AWS-0104
   egress {
     description = "DNS resolution"
     from_port   = 53
@@ -99,6 +105,7 @@ resource "aws_security_group" "application" {
     cidr_blocks = var.allowed_egress_cidrs
   }
 
+  #tfsec:ignore:AVD-AWS-0104
   egress {
     description = "DNS fallback resolution"
     from_port   = 53
