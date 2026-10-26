@@ -18,7 +18,11 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     let errorDetail = res.statusText;
     try {
       const errJson = await res.json();
-      errorDetail = errJson.error || errJson.message || JSON.stringify(errJson);
+      const error = errJson.error;
+      errorDetail =
+        (typeof error === 'string' ? error : error?.message) ||
+        errJson.message ||
+        JSON.stringify(errJson);
     } catch (_) {
       // ignore
     }
